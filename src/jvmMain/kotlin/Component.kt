@@ -3,14 +3,18 @@ interface Component {
     // name of component
     val name : String
 
-    // bitwise representation of all inputs
-    var inputs : UInt?
+    // lists of names for inputs/outputs
+    val inputNames : List<String>
+    val outputNames : List<String>
 
-    // bitwise representation of all outputs
-    var outputs : UInt?
-
-    // function to compute outputs of component, optionally given the inputs
-    fun compute(){
-        outputs = inputs
+    fun compute(inputs: List<Int>) : List<Int> {
+        // Return all inputs (adding 0 or removing inputs at the end if size not matching) by default
+        return if (inputs.size < outputNames.size) {
+            (inputs + List(outputNames.size - inputs.size) { 0 }).toList()
+        } else {
+            inputs.take(outputNames.size)
+        }
     }
+
+    fun onClick() {}
 }
