@@ -1,8 +1,5 @@
 
-interface Component {
-    // name of component
-    val name : String
-
+interface Component : Displayable {
     // lists of names for inputs/outputs
     val inputNames : List<String>
     val outputNames : List<String>
@@ -15,6 +12,4 @@ interface Component {
             inputs.take(outputNames.size)
         }
     }
-
-    fun onClick() {}
 }

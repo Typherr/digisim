@@ -1,4 +1,15 @@
+import kotlin.math.log2
+
 abstract class Gate(override val name: String, private val truthTable : List<Int>) : Component {
+    override val inputNames: List<String>
+        get() = if (truthTable.size == 2) {
+            listOf("IN")
+        } else {
+            ('A'..'Z').take(truthTable.size.countTrailingZeroBits()).map { it.toString() }
+        }
+    override val outputNames: List<String>
+        get() = listOf("OUT")
+
     override fun compute(inputs: List<Int>): List<Int> {
         var bitNumber = 0
         for (input in inputs.reversed()) {
@@ -23,6 +34,13 @@ abstract class Gate(override val name: String, private val truthTable : List<Int
 
         return result
     }
+
+    override val properties: MutableMap<String, String>
+        get() = TODO("Not yet implemented")
+    override val exposedProperties: MutableMap<String, String>
+        get() = TODO("Not yet implemented")
+
+
 }
 
 object Buffer: Gate("Buffer", listOf(0, 1)) {
@@ -65,6 +83,10 @@ object NorGate: Gate("And", listOf(1, 0, 0, 0)) {
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
+    override val properties: MutableMap<String, String>
+        get() = TODO("Not yet implemented")
+    override val exposedProperties: MutableMap<String, String>
+        get() = TODO("Not yet implemented")
 }
 
 object XorGate: Gate("And", listOf(0, 1, 1, 0)) {
