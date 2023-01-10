@@ -12,8 +12,16 @@ class Graph<T> {
     @Serializable
     data class Vertex<T>(val data: T)
 
-    internal val vertices = mutableListOf<Vertex<T>>()
-    internal val adjacencyMap = mutableMapOf<Vertex<T>, MutableList<Vertex<T>>>()
+    val vertices = mutableListOf<Vertex<T>>()
+    val adjacencyMap = mutableMapOf<Vertex<T>, MutableList<Vertex<T>>>()
+
+    operator fun get(vertex: Vertex<T>): MutableList<Vertex<T>> {
+        if (!adjacencyMap.containsKey(vertex)) {
+            adjacencyMap[vertex] = mutableListOf()
+        }
+        return adjacencyMap[vertex]!!
+    }
+    operator fun get(key: T): MutableList<Vertex<T>> = this[Vertex(key)]
 
     fun createVertex(data: T): Vertex<T> {
         val vertex = Vertex(data)
@@ -30,12 +38,20 @@ class Graph<T> {
     }
 
     fun addEdge(source: Vertex<T>, destination: Vertex<T>) {
+        if (!vertices.contains(source)) {
+            vertices.add(source)
+        }
+        if (!vertices.contains(destination)) {
+            vertices.add(destination)
+        }
         if (!adjacencyMap.containsKey(source)) {
             adjacencyMap[source] = mutableListOf()
         }
 
         adjacencyMap[source]!!.add(destination)
     }
+
+    fun addEdge(source: T, destination: T) = addEdge(Vertex(source), Vertex(destination))
 
     fun removeEdge(source: Vertex<T>, destination: Vertex<T>) {
         // Should never be true
@@ -60,34 +76,44 @@ class Graph<T> {
 }
 
 @Serializable
-private class GraphSurrogate<T>(val vertices: MutableList<Graph.Vertex<T>>, val adjacencyMap: MutableMap<Int, MutableList<Int>>)
+internal class GraphSurrogate<T>(val vertices: MutableList<Graph.Vertex<T>>, val adjacencyMap: MutableMap<Int, MutableList<Int>>) {
+    companion object {
+        fun <T> fromGraph(graph: Graph<T>) : GraphSurrogate<T> {
+            val adjMapIndices = mutableMapOf<Int, MutableList<Int>>()
+            for ((source, destinations) in graph.adjacencyMap.entries) {
+                val sourceIdx = graph.vertices.indexOf(source)
+                adjMapIndices[sourceIdx] = destinations.map { graph.vertices.indexOf(it) }.toMutableList()
+            }
+            return GraphSurrogate(graph.vertices, adjMapIndices)
+        }
+    }
 
-class GraphSerializer<T> : KSerializer<Graph<T>> {
-
-    override val descriptor: SerialDescriptor = serializer(typeOf<GraphSurrogate<T>>()).descriptor
-
-    override fun deserialize(decoder: Decoder): Graph<T> {
-        @Suppress("UNCHECKED_CAST")
-        val surrogate = decoder.decodeSerializableValue(serializer(typeOf<GraphSurrogate<T>>()) as KSerializer<GraphSurrogate<T>>)
+    fun toGraph(): Graph<T> {
         val graph = Graph<T>()
-        for (vertex in surrogate.vertices) {
+        for (vertex in this.vertices) {
             graph.addVertex(vertex)
         }
-        for ((source, destinations) in surrogate.adjacencyMap.entries) {
+        for ((source, destinations) in this.adjacencyMap.entries) {
             for (destination in destinations) {
                 graph.addEdge(graph.vertices[source], graph.vertices[destination])
             }
         }
         return graph
     }
+}
+
+class GraphSerializer<T>(private val dataSerializer: KSerializer<T>) : KSerializer<Graph<T>> {
+
+    override val descriptor: SerialDescriptor = GraphSurrogate.serializer(dataSerializer).descriptor
+
+    override fun deserialize(decoder: Decoder): Graph<T> {
+        @Suppress("UNCHECKED_CAST")
+        val surrogate = decoder.decodeSerializableValue(GraphSurrogate.serializer(dataSerializer))
+        return surrogate.toGraph()
+    }
 
     override fun serialize(encoder: Encoder, value: Graph<T>) {
-        val adjMapIndices = mutableMapOf<Int, MutableList<Int>>()
-        for ((source, destinations) in value.adjacencyMap.entries) {
-            val sourceIdx = value.vertices.indexOf(source)
-            adjMapIndices[sourceIdx] = destinations.map { value.vertices.indexOf(it) }.toMutableList()
-        }
-        val surrogate = GraphSurrogate(value.vertices, adjMapIndices)
-        encoder.encodeSerializableValue(serializer(typeOf<GraphSurrogate<T>>()), surrogate)
+        val surrogate = GraphSurrogate.fromGraph(value)
+        encoder.encodeSerializableValue(GraphSurrogate.serializer(dataSerializer), surrogate)
     }
 }

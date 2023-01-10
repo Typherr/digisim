@@ -1,8 +1,12 @@
-interface Displayable {
+import kotlinx.serialization.Serializable
+
+@Serializable(with = DisplayableSerializer::class)
+sealed interface Displayable {
     fun onClick() {}
+    val isClickable: Boolean
 
     // name of component
-    val name : String
+    val name: String
 
     val properties: MutableMap<String, String>
 
@@ -12,8 +16,9 @@ interface Displayable {
     val exposedProperties: MutableMap<String, String>
 }
 
-object Label : Displayable {
+class Label : Displayable {
     override val name = "Label"
+    override val isClickable: Boolean = false
     override val properties: MutableMap<String, String> = mutableMapOf(
         "text" to "Label"
     )

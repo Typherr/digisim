@@ -1,4 +1,4 @@
-import kotlin.math.log2
+import kotlinx.serialization.Serializable
 
 abstract class Gate(override val name: String, private val truthTable : List<Int>) : Component {
     override val inputNames: List<String>
@@ -10,7 +10,7 @@ abstract class Gate(override val name: String, private val truthTable : List<Int
     override val outputNames: List<String>
         get() = listOf("OUT")
 
-    override fun compute(inputs: List<Int>): List<Int> {
+    override fun compute(inputs: List<Int?>): List<Int?> {
         var bitNumber = 0
         for (input in inputs.reversed()) {
             bitNumber = bitNumber shl 1
@@ -35,68 +35,70 @@ abstract class Gate(override val name: String, private val truthTable : List<Int
         return result
     }
 
-    override val properties: MutableMap<String, String>
-        get() = TODO("Not yet implemented")
-    override val exposedProperties: MutableMap<String, String>
-        get() = TODO("Not yet implemented")
+    override val properties: MutableMap<String, String> = mutableMapOf()
+    override val exposedProperties: MutableMap<String, String> = mutableMapOf()
 
-
+    override val isClickable: Boolean = false
 }
 
-object Buffer: Gate("Buffer", listOf(0, 1)) {
+@Serializable(with = DisplayableSerializer::class)
+class Buffer: Gate("Buffer", listOf(0, 1)) {
     override val inputNames: List<String>
         get() = listOf("IN")
     override val outputNames: List<String>
         get() = listOf("OUT")
 }
 
-object NotGate: Gate("And", listOf(1, 0)) {
+@Serializable(with = DisplayableSerializer::class)
+class NotGate: Gate("NOT Gate", listOf(1, 0)) {
     override val inputNames: List<String>
         get() = listOf("IN")
     override val outputNames: List<String>
         get() = listOf("OUT")
 }
 
-object AndGate: Gate("And", listOf(0, 0, 0, 1)) {
+@Serializable(with = DisplayableSerializer::class)
+class AndGate: Gate("AND Gate", listOf(0, 0, 0, 1)) {
     override val inputNames: List<String>
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
 }
 
-object NandGate: Gate("And", listOf(1, 1, 1, 0)) {
+@Serializable(with = DisplayableSerializer::class)
+class NandGate: Gate("NAND Gate", listOf(1, 1, 1, 0)) {
     override val inputNames: List<String>
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
 }
 
-object OrGate: Gate("And", listOf(0, 1, 1, 1)) {
+@Serializable(with = DisplayableSerializer::class)
+class OrGate: Gate("OR Gate", listOf(0, 1, 1, 1)) {
     override val inputNames: List<String>
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
 }
 
-object NorGate: Gate("And", listOf(1, 0, 0, 0)) {
-    override val inputNames: List<String>
-        get() = listOf("A", "B")
-    override val outputNames: List<String>
-        get() = listOf("OUT")
-    override val properties: MutableMap<String, String>
-        get() = TODO("Not yet implemented")
-    override val exposedProperties: MutableMap<String, String>
-        get() = TODO("Not yet implemented")
-}
-
-object XorGate: Gate("And", listOf(0, 1, 1, 0)) {
+@Serializable(with = DisplayableSerializer::class)
+class NorGate: Gate("NOR Gate", listOf(1, 0, 0, 0)) {
     override val inputNames: List<String>
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
 }
 
-object XnorGate: Gate("And", listOf(1, 0, 0, 1)) {
+@Serializable(with = DisplayableSerializer::class)
+class XorGate: Gate("XOR Gate", listOf(0, 1, 1, 0)) {
+    override val inputNames: List<String>
+        get() = listOf("A", "B")
+    override val outputNames: List<String>
+        get() = listOf("OUT")
+}
+
+@Serializable(with = DisplayableSerializer::class)
+class XnorGate: Gate("XNOR Gate", listOf(1, 0, 0, 1)) {
     override val inputNames: List<String>
         get() = listOf("A", "B")
     override val outputNames: List<String>
@@ -105,5 +107,5 @@ object XnorGate: Gate("And", listOf(1, 0, 0, 1)) {
 
 fun main() {
     for( i in (0 until 4))
-    print(XorGate.compute(i.toString(2).map { it - '0' }))
+    print(XorGate().compute(i.toString(2).map { it - '0' }))
 }
