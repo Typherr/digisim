@@ -126,13 +126,13 @@ fun main() {
     circuit.addEdge(nor1 index 0, outputQ index 0)
     circuit.addEdge(nor2 index 0, outputNotQ index 0)
 
-    val json = Json.encodeToString(circuit)
+//    val json = Json.encodeToString(circuit)
+//
+//    File("${System.getProperty("user.home")}/Desktop/circuit.json").writeText(json)
+//
+//    val circuit2 = Json.decodeFromString<Graph<CircuitPair>>(json)
 
-    File("${System.getProperty("user.home")}/Desktop/circuit.json").writeText(json)
-
-    val circuit2 = Json.decodeFromString<Graph<CircuitPair>>(json)
-
-    val sim = Simulator(circuit2)
+    val sim = Simulator(circuit)
 
     while (true) {
         for (component in components) {

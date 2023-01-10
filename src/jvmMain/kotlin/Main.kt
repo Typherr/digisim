@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.*
+import androidx.compose.ui.window.WindowPosition.PlatformDefault.y
 import java.awt.FileDialog
 import java.io.File
 import javax.swing.UIManager
@@ -135,6 +136,7 @@ fun App() {
                     }
                 }
 
+                var panningOffset by remember { mutableStateOf<Offset>(Offset(0.0f, 0.0f)) }
                 var cursorPosition by remember { mutableStateOf<Offset?>(null) }
                 var hoveredDisplayable by remember { mutableStateOf<Displayable?>(null) }
                 var pressedDisplayable by remember { mutableStateOf<Displayable?>(null) }
@@ -154,17 +156,24 @@ fun App() {
                                 },
                                 onDrag = { _: PointerInputChange, offset: Offset ->
                                     cursorPosition = cursorPosition!! + offset
+                                    if (pressedDisplayable == null) {
+                                        panningOffset += offset
+                                    }
                                 },
                                 onDragEnd = {
                                     if (pressedDisplayable != null) {
-                                        dropNewDisplayable(pressedDisplayable!!, cursorPosition!!.x, cursorPosition!!.y)
+                                        val position = cursorPosition!! - panningOffset
+                                        val (x, y) = position
+                                        dropNewDisplayable(pressedDisplayable!!, x, y)
                                     }
                                     cursorPosition = null
                                     pressedDisplayable = null
                                 },
                                 onDragCancel = {
                                     if (pressedDisplayable != null) {
-                                        dropNewDisplayable(pressedDisplayable!!, cursorPosition!!.x, cursorPosition!!.y)
+                                        val position = cursorPosition!! - panningOffset
+                                        val (x, y) = position
+                                        dropNewDisplayable(pressedDisplayable!!, x, y)
                                     }
                                     cursorPosition = null
                                     pressedDisplayable = null
@@ -203,17 +212,19 @@ fun App() {
                     Box(modifier = Modifier.fillMaxSize().clipToBounds()) {
                         if (pressedDisplayable != null && cursorPosition != null) {
                             // Draw component that is being added, but not yet part of the canvas
+//                            val offsettedPosition = (cursorPosition ?: Offset(0.0f, 0.0f)) + panningOffset
+                            val offsettedPosition = (cursorPosition ?: Offset(0.0f, 0.0f))
                             Text(
                                 pressedDisplayable!!.name,
                                 modifier = Modifier.offset {
-                                    IntOffset(cursorPosition?.x?.toInt() ?: 0, cursorPosition?.y?.toInt() ?: 0)
+                                    IntOffset(offsettedPosition.x.toInt(), offsettedPosition.y.toInt())
                                 }
                             )
                         }
 
                         // Draw displayables
                         for ((displayable, xy) in selectedCircuit.value!!.circuit.canvas) {
-                            val (x, y) = xy
+                            val (x, y) = Offset(xy.first, xy.second) + panningOffset
                             Text(
                                 displayable.name,
                                 modifier = Modifier.offset {
