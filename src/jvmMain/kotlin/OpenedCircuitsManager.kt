@@ -4,9 +4,13 @@ import java.io.File
 
 class OpenedCircuitsManager {
     val openedCircuits = mutableStateListOf<OpenedCircuit>()
+    val simulators = mutableStateListOf<Pair<Simulator, Int>>()
 
     var selectedCircuit by mutableStateOf<OpenedCircuit?>(null)
         private set
+
+    val selectedSimulation: Pair<Simulator, Int>?
+        get() = if (selectedCircuit == null) null else simulators[openedCircuits.indexOf(selectedCircuit!!)]
 
     fun modifyCircuit(oldCircuit: OpenedCircuit, modifier: (OpenedCircuit) -> OpenedCircuit) {
         val index = openedCircuits.indexOf(oldCircuit)
@@ -38,6 +42,7 @@ class OpenedCircuitsManager {
     fun openCircuit(circuit: OpenedCircuit) {
         openedCircuits.add(circuit)
         selectedCircuit = circuit
+        simulators.add(Simulator(circuit.circuit.graph) to 0)
     }
 
     fun selectCircuit(circuit: OpenedCircuit) {
@@ -45,18 +50,23 @@ class OpenedCircuitsManager {
     }
 
     fun closeCircuit(circuit: OpenedCircuit) {
+        val index = openedCircuits.indexOf(circuit)
+        if (index == -1) {
+            return
+        }
         if (selectedCircuit == circuit) {
-            var index = openedCircuits.indexOf(circuit) + 1
-            if (!openedCircuits.indices.contains(index)) {
-                index -= 1
+            var newIndex = index + 1
+            if (!openedCircuits.indices.contains(newIndex)) {
+                newIndex -= 1
             }
             openedCircuits.remove(circuit)
-            index -= 1
-            selectedCircuit = openedCircuits.getOrNull(index)
+            newIndex -= 1
+            selectedCircuit = openedCircuits.getOrNull(newIndex)
         }
         else {
             openedCircuits.remove(circuit)
         }
+        simulators.removeAt(index)
     }
 }
 

@@ -6,7 +6,7 @@ class OutputPin : Component {
     override val outputNames: List<String> = listOf()
     override val name: String = "Output"
 
-    override val inputPositions: List<Pair<Double, Double>> = listOf(0.0 to 0.0)
+    override val inputPositions: List<Pair<Double, Double>> = listOf(6.0 / 150.0 to 24.0 / 50.0)
     override val outputPositions: List<Pair<Double, Double>> = listOf()
 
     override val isClickable: Boolean = false

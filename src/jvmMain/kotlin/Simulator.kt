@@ -10,9 +10,10 @@ private fun <E> MutableSet<E>.removeFirst(): E {
 }
 
 class Simulator(private val circuit: Graph<CircuitPair>) {
-    private val inputComponents: List<Component> = circuit.vertices
-        .filter { it.data.component.inputNames.isEmpty() }
-        .map { it.data.component }
+    private val inputComponents: List<Component>
+        get() = circuit.vertices
+            .filter { it.data.component.inputNames.isEmpty() }
+            .map { it.data.component }
     private val toSimulate: MutableSet<Component> = LinkedHashSet()
     private val _knownValues: MutableMap<Component, List<Int?>> = mutableMapOf()
 

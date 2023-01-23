@@ -184,6 +184,9 @@ fun App(manager: OpenedCircuitsManager) {
                             detectTapGestures(onPress =  { offset ->
                                 pressed = hovered?.withPressOffset(offset.copy(x = offset.x - 300.dp.toPx()))
                                 awaitRelease()
+                                if (pressed is HoveredDisplayable && (pressed as HoveredDisplayable).displayable.isClickable) {
+                                    (pressed as HoveredDisplayable).displayable.onClick()
+                                }
                                 pressed = null
                             })
                         }
@@ -202,8 +205,8 @@ fun App(manager: OpenedCircuitsManager) {
                                     if (pressed != null) {
                                         val position = cursorPosition!! - panningOffset
                                         val (x, y) = position
-                                        if (pressed is HoveredDisplayable) {
-                                            dropNewDisplayable((pressed as HoveredDisplayable).displayable, x, y)
+                                        if (pressed is HoveredNewDisplayable) {
+                                            dropNewDisplayable((pressed as HoveredNewDisplayable).displayable, x, y)
                                         }
                                         else if (pressed is HoveredSource && cachedSnapSink != null && cachedSnapSink!!.second.second < 20f) {
                                             dropNewWire(
@@ -219,8 +222,8 @@ fun App(manager: OpenedCircuitsManager) {
                                     if (pressed != null) {
                                         val position = cursorPosition!! - panningOffset
                                         val (x, y) = position
-                                        if (pressed is HoveredDisplayable) {
-                                            dropNewDisplayable((pressed as HoveredDisplayable).displayable, x, y)
+                                        if (pressed is HoveredNewDisplayable) {
+                                            dropNewDisplayable((pressed as HoveredNewDisplayable).displayable, x, y)
                                         }
                                         else if (pressed is HoveredSource && cachedSnapSink != null && cachedSnapSink!!.second.second < 20f) {
                                             dropNewWire(
@@ -250,7 +253,7 @@ fun App(manager: OpenedCircuitsManager) {
                                     name,
                                     creator,
                                     onHoverStart = {
-                                        hovered = HoveredDisplayable(creator())
+                                        hovered = HoveredNewDisplayable(creator())
                                     },
                                     onHoverEnd = {
                                         hovered = null
@@ -264,12 +267,19 @@ fun App(manager: OpenedCircuitsManager) {
                     }
 
                     Box(modifier = Modifier.fillMaxSize().clipToBounds()) {
-                        if (pressed is HoveredDisplayable && cursorPosition != null) {
+                        val simulation = manager.simulators[manager.openedCircuits.indexOf(manager.selectedCircuit!!)]
+
+                        LaunchedEffect(simulation.second) {
+                            simulation.first.simulationStep()
+                            manager.simulators[manager.openedCircuits.indexOf(manager.selectedCircuit!!)] = simulation.first to simulation.second + 1
+                        }
+
+                        if (pressed is HoveredNewDisplayable && cursorPosition != null) {
                             // Draw component that is being added, but not yet part of the canvas
 //                            val offsettedPosition = (cursorPosition ?: Offset(0.0f, 0.0f)) + panningOffset
                             val offsettedPosition = (cursorPosition ?: Offset(0.0f, 0.0f))
                             Text(
-                                (pressed as HoveredDisplayable).displayable.name,
+                                (pressed as HoveredNewDisplayable).displayable.name,
                                 modifier = Modifier.offset {
                                     IntOffset(offsettedPosition.x.toInt(), offsettedPosition.y.toInt())
                                 }
@@ -293,7 +303,7 @@ fun App(manager: OpenedCircuitsManager) {
                         for ((displayable, xy) in manager.selectedCircuit!!.circuit.canvas) {
                             val (x, y) = Offset(xy.first, xy.second) + panningOffset
                             when (displayable) {
-                                is Gate -> {
+                                is Gate, is InputPin, is OutputPin -> {
                                     // HERE
                                     MeasureUnconstrainedViewSize(
                                         viewToMeasure = {
@@ -309,17 +319,24 @@ fun App(manager: OpenedCircuitsManager) {
                                                 displayable.name,
                                                 modifier = Modifier.offset {
                                                     IntOffset(x.toInt(), y.toInt())
-                                                }.also {
+                                                }.let {
                                                     if (displayable.isClickable) {
                                                         it.onClick {
                                                             displayable.onClick()
+                                                            val simulation = manager.selectedSimulation?.first
+                                                            if (simulation != null && displayable is Component) {
+                                                                simulation.simulateComponent(displayable)
+                                                            }
                                                         }
+                                                    }
+                                                    else {
+                                                        it
                                                     }
                                                 }.onGloballyPositioned {
                                                     displayablePositions[displayable] = it
                                                 }
                                             )
-                                            for ((index, i) in displayable.inputNames.zip(displayable.inputPositions).withIndex()) {
+                                            for ((index, i) in (displayable as Component).inputNames.zip((displayable as Component).inputPositions).withIndex()) {
                                                 val (inputName, inputPosition) = i
                                                 Box(
                                                     modifier = Modifier
@@ -432,9 +449,29 @@ fun App(manager: OpenedCircuitsManager) {
                                     (sinkComp.inputPositions[sinkIdx].first * displayablePositions[sinkComp]!!.size.width).toFloat(),
                                     (sinkComp.inputPositions[sinkIdx].second * displayablePositions[sinkComp]!!.size.height).toFloat(),
                                 )
+
+                                // Check if can color based on simulation
+                                var color = Color.Black
+                                val simulation = manager.selectedSimulation?.first
+                                if (simulation != null) {
+                                    if (simulation.knownValues.containsKey(sourceComp)) {
+                                        val value = simulation.knownValues[sourceComp]!![sourceIdx]
+                                        if (value == 0) {
+                                            color = Color.Red
+                                        }
+                                        else if (value == 1) {
+                                            color = Color.Green
+                                        }
+                                        else if (value != null && value > 1) {
+                                            color = Color.Blue
+                                        }
+                                    }
+                                }
+
                                 Wire(
                                     from,
                                     to,
+                                    color = color,
                                     modifier = Modifier.offset {
                                         IntOffset(
                                             minOf(from.x, to.x).toInt() + panningOffset.x.toInt(),
@@ -453,6 +490,9 @@ fun App(manager: OpenedCircuitsManager) {
 
 abstract sealed class Hoverable {
     abstract fun withPressOffset(offset: Offset): Hoverable
+}
+data class HoveredNewDisplayable(val displayable: Displayable): Hoverable() {
+    override fun withPressOffset(offset: Offset): Hoverable = this
 }
 data class HoveredDisplayable(val displayable: Displayable): Hoverable() {
     override fun withPressOffset(offset: Offset): Hoverable = this
@@ -712,6 +752,13 @@ fun main() {
                         Item("Quit", mnemonic = 'Q', shortcut = KeyShortcut(Key.F4, alt = true)) {
                             exitApplication()
                         }
+                    }
+                }
+                Menu("Simulator", 'S') {
+                    Item("Next Step", enabled = manager.selectedCircuit != null) {
+                        val simulation = manager.selectedSimulation!!
+                        simulation.first.simulationStep()
+                        manager.simulators[manager.openedCircuits.indexOf(manager.selectedCircuit!!)] = simulation.first to simulation.second + 1
                     }
                 }
             }

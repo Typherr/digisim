@@ -7,7 +7,7 @@ class InputPin : Component {
     override val name: String = "Input"
 
     override val inputPositions: List<Pair<Double, Double>> = listOf()
-    override val outputPositions: List<Pair<Double, Double>> = listOf(0.0 to 0.0)
+    override val outputPositions: List<Pair<Double, Double>> = listOf(144.0 / 150.0 to 24.0 / 50.0)
 
     override val properties: MutableMap<String, String> = mutableMapOf("value" to "0")
     override val exposedProperties: MutableMap<String, String> = mutableMapOf("value" to "Value")
