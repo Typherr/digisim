@@ -6,6 +6,9 @@ class InputPin : Component {
     override val outputNames: List<String> = listOf("")
     override val name: String = "Input"
 
+    override val inputPositions: List<Pair<Double, Double>> = listOf()
+    override val outputPositions: List<Pair<Double, Double>> = listOf(0.0 to 0.0)
+
     override val properties: MutableMap<String, String> = mutableMapOf("value" to "0")
     override val exposedProperties: MutableMap<String, String> = mutableMapOf("value" to "Value")
 

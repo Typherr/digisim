@@ -6,6 +6,9 @@ sealed interface Component : Displayable {
     val inputNames : List<String>
     val outputNames : List<String>
 
+    val inputPositions: List<Pair<Double, Double>>
+    val outputPositions: List<Pair<Double, Double>>
+
     fun compute(inputs: List<Int?>) : List<Int?> {
         // Return all inputs (adding 0 or removing inputs at the end if size not matching) by default
         return if (inputs.size < outputNames.size) {

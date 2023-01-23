@@ -6,6 +6,9 @@ class OutputPin : Component {
     override val outputNames: List<String> = listOf()
     override val name: String = "Output"
 
+    override val inputPositions: List<Pair<Double, Double>> = listOf(0.0 to 0.0)
+    override val outputPositions: List<Pair<Double, Double>> = listOf()
+
     override val isClickable: Boolean = false
 
     override val properties: MutableMap<String, String> = mutableMapOf("value" to "undefined")

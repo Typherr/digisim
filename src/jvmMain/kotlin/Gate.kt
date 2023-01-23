@@ -47,6 +47,10 @@ class Buffer: Gate("Buffer", listOf(0, 1)) {
         get() = listOf("IN")
     override val outputNames: List<String>
         get() = listOf("OUT")
+    override val inputPositions: List<Pair<Double, Double>>
+        get() = listOf(6.0 / 150.0 to 24.0 / 50.0)
+    override val outputPositions: List<Pair<Double, Double>>
+        get() = listOf(144.0 / 150.0 to 24.0 / 50.0)
 }
 
 @Serializable(with = DisplayableSerializer::class)
@@ -55,6 +59,10 @@ class NotGate: Gate("NOT Gate", listOf(1, 0)) {
         get() = listOf("IN")
     override val outputNames: List<String>
         get() = listOf("OUT")
+    override val inputPositions: List<Pair<Double, Double>>
+        get() = listOf(6.0 / 150.0 to 24.0 / 50.0)
+    override val outputPositions: List<Pair<Double, Double>>
+        get() = listOf(144.0 / 150.0 to 24.0 / 50.0)
 }
 
 @Serializable(with = DisplayableSerializer::class)
@@ -63,6 +71,10 @@ class AndGate: Gate("AND Gate", listOf(0, 0, 0, 1)) {
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
+    override val inputPositions: List<Pair<Double, Double>>
+        get() = listOf(6.0 / 150.0 to 16.0 / 50.0, 6.0 / 150.0 to 34.0 / 50.0)
+    override val outputPositions: List<Pair<Double, Double>>
+        get() = listOf(144.0 / 150.0 to 24.0 / 50.0)
 }
 
 @Serializable(with = DisplayableSerializer::class)
@@ -71,6 +83,10 @@ class NandGate: Gate("NAND Gate", listOf(1, 1, 1, 0)) {
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
+    override val inputPositions: List<Pair<Double, Double>>
+        get() = listOf(6.0 / 150.0 to 16.0 / 50.0, 6.0 / 150.0 to 34.0 / 50.0)
+    override val outputPositions: List<Pair<Double, Double>>
+        get() = listOf(144.0 / 150.0 to 24.0 / 50.0)
 }
 
 @Serializable(with = DisplayableSerializer::class)
@@ -79,6 +95,10 @@ class OrGate: Gate("OR Gate", listOf(0, 1, 1, 1)) {
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
+    override val inputPositions: List<Pair<Double, Double>>
+        get() = listOf(6.0 / 150.0 to 16.0 / 50.0, 6.0 / 150.0 to 34.0 / 50.0)
+    override val outputPositions: List<Pair<Double, Double>>
+        get() = listOf(144.0 / 150.0 to 24.0 / 50.0)
 }
 
 @Serializable(with = DisplayableSerializer::class)
@@ -87,6 +107,10 @@ class NorGate: Gate("NOR Gate", listOf(1, 0, 0, 0)) {
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
+    override val inputPositions: List<Pair<Double, Double>>
+        get() = listOf(6.0 / 150.0 to 16.0 / 50.0, 6.0 / 150.0 to 34.0 / 50.0)
+    override val outputPositions: List<Pair<Double, Double>>
+        get() = listOf(144.0 / 150.0 to 24.0 / 50.0)
 }
 
 @Serializable(with = DisplayableSerializer::class)
@@ -95,6 +119,10 @@ class XorGate: Gate("XOR Gate", listOf(0, 1, 1, 0)) {
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
+    override val inputPositions: List<Pair<Double, Double>>
+        get() = listOf(6.0 / 150.0 to 16.0 / 50.0, 6.0 / 150.0 to 34.0 / 50.0)
+    override val outputPositions: List<Pair<Double, Double>>
+        get() = listOf(144.0 / 150.0 to 24.0 / 50.0)
 }
 
 @Serializable(with = DisplayableSerializer::class)
@@ -103,6 +131,10 @@ class XnorGate: Gate("XNOR Gate", listOf(1, 0, 0, 1)) {
         get() = listOf("A", "B")
     override val outputNames: List<String>
         get() = listOf("OUT")
+    override val inputPositions: List<Pair<Double, Double>>
+        get() = listOf(6.0 / 150.0 to 16.0 / 50.0, 6.0 / 150.0 to 34.0 / 50.0)
+    override val outputPositions: List<Pair<Double, Double>>
+        get() = listOf(144.0 / 150.0 to 24.0 / 50.0)
 }
 
 fun main() {
