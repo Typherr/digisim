@@ -23,30 +23,72 @@ object DisplayableSerializer : KSerializer<Displayable> {
     }
 
     val constructors = mapOf<String, (Map<String, String>) -> Displayable>(
-        "Label" to {
-            val comp = Label()
+        "Node" to { Node().also { comp ->
             for ((k, v) in it) {
                 comp.properties[k] = v
             }
-            comp
+        } },
+
+        "Label" to {
+            Label().also { comp ->
+                for ((k, v) in it) {
+                    comp.properties[k] = v
+                }
+            }
         },
 
         "Input" to {
-            val comp = InputPin()
+            InputPin().also { comp ->
+                for ((k, v) in it) {
+                    comp.properties[k] = v
+                }
+            }
+        },
+        "Output" to { OutputPin().also { comp ->
             for ((k, v) in it) {
                 comp.properties[k] = v
             }
-            comp
-        },
-        "Output" to { OutputPin() },
+        } },
 
-        "Buffer" to { Buffer() },
-        "NOT Gate" to { NotGate() },
-        "AND Gate" to { AndGate() },
-        "NAND Gate" to { NandGate() },
-        "OR Gate" to { OrGate() },
-        "NOR Gate" to { NorGate() },
-        "XOR Gate" to { XorGate() },
-        "XNOR Gate" to { XnorGate() },
+        "Buffer" to { Buffer().also { comp ->
+            for ((k, v) in it) {
+                comp.properties[k] = v
+            }
+        } },
+        "NOT Gate" to { NotGate().also { comp ->
+            for ((k, v) in it) {
+                comp.properties[k] = v
+            }
+        } },
+        "AND Gate" to { AndGate().also { comp ->
+            for ((k, v) in it) {
+                comp.properties[k] = v
+            }
+        } },
+        "NAND Gate" to { NandGate().also { comp ->
+            for ((k, v) in it) {
+                comp.properties[k] = v
+            }
+        } },
+        "OR Gate" to { OrGate().also { comp ->
+            for ((k, v) in it) {
+                comp.properties[k] = v
+            }
+        } },
+        "NOR Gate" to { NorGate().also { comp ->
+            for ((k, v) in it) {
+                comp.properties[k] = v
+            }
+        } },
+        "XOR Gate" to { XorGate().also { comp ->
+            for ((k, v) in it) {
+                comp.properties[k] = v
+            }
+        } },
+        "XNOR Gate" to { XnorGate().also { comp ->
+            for ((k, v) in it) {
+                comp.properties[k] = v
+            }
+        } },
     )
 }

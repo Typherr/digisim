@@ -37,8 +37,28 @@ abstract class Gate(override val name: String, private val truthTable : List<Int
 
     override val properties: MutableMap<String, String> = mutableMapOf()
     override val exposedProperties: MutableMap<String, String> = mutableMapOf()
+    override val writableProperties: MutableList<String> = mutableListOf()
 
     override val isClickable: Boolean = false
+}
+
+@Serializable(with = DisplayableSerializer::class)
+class Node: Gate("Node", listOf(0, 1)) {
+    override val inputNames: List<String>
+        get() = listOf("IN")
+    override val outputNames: List<String>
+        get() = listOf("OUT")
+    override val inputPositions: List<Pair<Double, Double>>
+        get() = listOf(0.5 to 0.5)
+    override val outputPositions: List<Pair<Double, Double>>
+        get() = listOf(0.5 to 0.5)
+    override val properties: MutableMap<String, String> = (super.properties + ("value" to "undefined")).toMutableMap()
+    override val exposedProperties: MutableMap<String, String> = (super.exposedProperties + ("value" to "Value")).toMutableMap()
+    override fun compute(inputs: List<Int?>): List<Int?> {
+        val result = super.compute(inputs)
+        properties["value"] = result[0]?.toString() ?: "undefined"
+        return result
+    }
 }
 
 @Serializable(with = DisplayableSerializer::class)

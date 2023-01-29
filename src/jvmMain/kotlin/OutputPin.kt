@@ -13,6 +13,7 @@ class OutputPin : Component {
 
     override val properties: MutableMap<String, String> = mutableMapOf("value" to "undefined")
     override val exposedProperties: MutableMap<String, String> = mutableMapOf("value" to "Value")
+    override val writableProperties: MutableList<String> = mutableListOf()
 
     override fun compute(inputs: List<Int?>): List<Int?> {
         properties["value"] = inputs.firstOrNull()?.toString() ?: "undefined"

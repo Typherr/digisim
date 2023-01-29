@@ -7,6 +7,8 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.*
@@ -16,23 +18,25 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyShortcut
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.res.loadSvgPainter
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.toUpperCase
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.*
-import androidx.compose.ui.window.WindowPosition.PlatformDefault.y
+import extensions.toOffset
+import org.jetbrains.skiko.Cursor
 import java.awt.FileDialog
 import java.io.File
 import java.util.*
@@ -40,12 +44,11 @@ import javax.swing.UIManager
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
-import extensions.toOffset
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 @Preview
-fun App(manager: OpenedCircuitsManager) {
+fun App(appState: AppState, manager: OpenedCircuitsManager) {
     MaterialTheme {
         //Entire screen
         val openedCircuits = manager.openedCircuits
@@ -60,8 +63,7 @@ fun App(manager: OpenedCircuitsManager) {
                                     it.createVertex(displayable index 0)
                                     it
                                 }
-                            }
-                            else {
+                            } else {
                                 cfc.editDisplayables {
                                     it + displayable
                                 }
@@ -75,11 +77,23 @@ fun App(manager: OpenedCircuitsManager) {
         }
 
         fun dropNewWire(from: CircuitPair, to: CircuitPair) {
-            manager.modifyCircuit(manager.selectedCircuit!!) { circuit ->
-                circuit.editCircuit { cfc ->
-                    cfc.editGraph {
-                        it.addEdge(from, to)
-                        it
+            // If dropping existing wire, delete it
+            if (manager.selectedCircuit!!.circuit.graph.adjacencyMap[Graph.Vertex(from)]?.contains(Graph.Vertex(to)) == true) {
+                manager.modifyCircuit(manager.selectedCircuit!!) { circuit ->
+                    circuit.editCircuit { cfc ->
+                        cfc.editGraph {
+                            it.removeEdge(Graph.Vertex(from), Graph.Vertex(to))
+                            it
+                        }
+                    }
+                }
+            } else {
+                manager.modifyCircuit(manager.selectedCircuit!!) { circuit ->
+                    circuit.editCircuit { cfc ->
+                        cfc.editGraph {
+                            it.addEdge(from, to)
+                            it
+                        }
                     }
                 }
             }
@@ -96,7 +110,7 @@ fun App(manager: OpenedCircuitsManager) {
                 modifier = Modifier.fillMaxSize(),
             ) {
                 Button(onClick = {
-                   manager.newCircuit()
+                    manager.newCircuit()
                 }) {
                     Text("New Circuit")
                 }
@@ -108,8 +122,7 @@ fun App(manager: OpenedCircuitsManager) {
                     Text("Open Circuit")
                 }
             }
-        }
-        else {
+        } else {
             Column {
                 LazyRow {
                     items(openedCircuits) { oc ->
@@ -117,7 +130,7 @@ fun App(manager: OpenedCircuitsManager) {
                             manager.selectCircuit(oc)
                         }) {
                             Text(oc.filename ?: "New Circuit")
-                            // TODO: Figure out a way to save unsaved files from here
+                            // Figure out a way to save unsaved files from here
                             //       until then, don't show X, and just close via File > Close (Ctrl/Cmd + W)
 //                            IconButton(modifier = Modifier.size(12.dp), onClick = {
 //                                if (!oc.edited) {
@@ -135,7 +148,7 @@ fun App(manager: OpenedCircuitsManager) {
 //                                    }
 //                                }
 //                                else {
-//                                    // TODO: First prompt save
+//                                    // First prompt save
 //                                }
 //                            }) {
 //                                Icon(Icons.Filled.Close, "Close Circuit")
@@ -148,7 +161,6 @@ fun App(manager: OpenedCircuitsManager) {
 
                 var panningOffset by remember { mutableStateOf(Offset(0.0f, 0.0f)) }
                 var cursorPosition by remember { mutableStateOf<Offset?>(null) }
-                var hovered by remember { mutableStateOf<Hoverable?>(null) }
                 var pressed by remember { mutableStateOf<Hoverable?>(null) }
                 var cachedSnapSink by remember { mutableStateOf<Pair<Pair<Component, Int>, Pair<Offset, Float>>?>(null) }
                 val snapSink = manager.selectedCircuit!!.circuit.canvas
@@ -157,15 +169,17 @@ fun App(manager: OpenedCircuitsManager) {
                     .map { it.key as Component to it.value }
                     .filter { it.first.inputNames.isNotEmpty() && displayablePositions.containsKey(it.first) }
                     .flatMap { it.first.inputPositions.mapIndexed { index, pos -> ((it.first to index) to it.second) } }
-                    .map { it.first to Offset(
-                        (it.second.first + it.first.first.inputPositions[it.first.second].first * displayablePositions[it.first.first]!!.size.width).toFloat(),
-                        (it.second.second + it.first.first.inputPositions[it.first.second].second * displayablePositions[it.first.first]!!.size.height).toFloat()
-                    ) }
+                    .map {
+                        it.first to Offset(
+                            (it.second.first + it.first.first.inputPositions[it.first.second].first * displayablePositions[it.first.first]!!.size.width).toFloat(),
+                            (it.second.second + it.first.first.inputPositions[it.first.second].second * displayablePositions[it.first.first]!!.size.height).toFloat()
+                        )
+                    }
                     .map {
                         val cursorInCanvas = cursorPosition?.minus(panningOffset) ?: Offset.Zero
                         it.first to (it.second to (
                                 sqrt(((cursorInCanvas.x) - it.second.x).pow(2) + (cursorInCanvas.y - it.second.y).pow(2))
-                        ))
+                                ))
                     }
                     .filter {
                         it.second.second < 20f
@@ -181,24 +195,38 @@ fun App(manager: OpenedCircuitsManager) {
                 Row(
                     modifier = Modifier
                         .pointerInput(Unit) {
-                            detectTapGestures(onPress =  { offset ->
-                                pressed = hovered?.withPressOffset(offset.copy(x = offset.x - 300.dp.toPx()))
+                            detectTapGestures(onPress = { offset ->
+                                pressed = appState.hovered?.withPressOffset(offset.copy(x = offset.x - 300.dp.toPx()))
                                 awaitRelease()
-                                if (pressed is HoveredDisplayable && (pressed as HoveredDisplayable).displayable.isClickable) {
-                                    (pressed as HoveredDisplayable).displayable.onClick()
-                                }
                                 pressed = null
+                                appState.selectedDisplayable = null
+                                appState.hovered = null
                             })
                         }
                         .pointerInput(Unit) {
                             detectDragGestures(
-                                onDragStart = { offset : Offset ->
+                                onDragStart = { offset: Offset ->
                                     cursorPosition = offset - Offset(300.0F, 0.0F)
                                 },
                                 onDrag = { _: PointerInputChange, offset: Offset ->
                                     cursorPosition = cursorPosition!! + offset
                                     if (pressed == null) {
                                         panningOffset += offset
+                                    } else if (pressed is HoveredDisplayable) {
+                                        val d = (pressed as HoveredDisplayable).displayable
+                                        manager.modifyCircuit(manager.selectedCircuit!!) { circuit ->
+                                            circuit.editCircuit { cfc ->
+                                                cfc.editCanvas {
+                                                    val v = it[d]
+                                                    if (v == null) {
+                                                        it
+                                                    } else {
+                                                        val newCanvasPosition = Offset(v.first, v.second) + offset
+                                                        it + (d to (newCanvasPosition.x to newCanvasPosition.y))
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 },
                                 onDragEnd = {
@@ -207,8 +235,7 @@ fun App(manager: OpenedCircuitsManager) {
                                         val (x, y) = position
                                         if (pressed is HoveredNewDisplayable) {
                                             dropNewDisplayable((pressed as HoveredNewDisplayable).displayable, x, y)
-                                        }
-                                        else if (pressed is HoveredSource && cachedSnapSink != null && cachedSnapSink!!.second.second < 20f) {
+                                        } else if (pressed is HoveredSource && cachedSnapSink != null && cachedSnapSink!!.second.second < 20f) {
                                             dropNewWire(
                                                 ((pressed as HoveredSource).displayable as Component) index (pressed as HoveredSource).sourceIndex,
                                                 cachedSnapSink!!.first.first index cachedSnapSink!!.first.second
@@ -224,8 +251,7 @@ fun App(manager: OpenedCircuitsManager) {
                                         val (x, y) = position
                                         if (pressed is HoveredNewDisplayable) {
                                             dropNewDisplayable((pressed as HoveredNewDisplayable).displayable, x, y)
-                                        }
-                                        else if (pressed is HoveredSource && cachedSnapSink != null && cachedSnapSink!!.second.second < 20f) {
+                                        } else if (pressed is HoveredSource && cachedSnapSink != null && cachedSnapSink!!.second.second < 20f) {
                                             dropNewWire(
                                                 ((pressed as HoveredSource).displayable as Component) index (pressed as HoveredSource).sourceIndex,
                                                 cachedSnapSink!!.first.first index cachedSnapSink!!.first.second
@@ -245,45 +271,123 @@ fun App(manager: OpenedCircuitsManager) {
                             .width(300.dp)
                             .background(Color.Black.copy(alpha = 0.05F))
                             .fillMaxSize()
-                    ){
+                            .fillMaxSize()
+                    ) {
                         //Toolbox
-                        LazyColumn {
+                        LazyColumn(
+                            Modifier
+                                .weight(1f)
+                        ) {
                             items(DisplayableSerializer.constructors.entries.map { it.key to { it.value(mapOf()) } }) { (name, creator) ->
                                 ToolboxComponent(
                                     name,
                                     creator,
                                     onHoverStart = {
-                                        hovered = HoveredNewDisplayable(creator())
+                                        appState.hovered = HoveredNewDisplayable(creator())
                                     },
                                     onHoverEnd = {
-                                        hovered = null
+                                        appState.hovered = null
                                     }
                                 )
                             }
-                            //TODO: load components here
                         }
-                        //TODO: state viewer
-
+                        // State Viewer
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxSize()
+                                .background(Color.White)
+                        ) {
+                            val selectedDisplayable = appState.selectedDisplayable
+                            val exposedProperties = mapOf("name" to "Name") + (selectedDisplayable?.exposedProperties ?: mapOf())
+                            val writableProperties = (selectedDisplayable?.writableProperties ?: listOf()) + "name"
+                            if (selectedDisplayable != null) {
+                                val displayName = if (selectedDisplayable.properties["name"] != null) {
+                                    "${selectedDisplayable.properties["name"]} (${selectedDisplayable.name})"
+                                }
+                                else {
+                                    "${selectedDisplayable.name}@${selectedDisplayable.hashCode().toString(16)}"
+                                }
+                                Text(displayName)
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    content = {
+                                        // Load states here
+                                        items(exposedProperties.size * 2) { idx ->
+                                            val entry = exposedProperties.entries.toList()[idx / 2]
+                                            if (idx % 2 == 0) {
+                                                Text(entry.value)
+                                            } else if (idx % 2 == 1) {
+                                                val value = selectedDisplayable.properties[entry.key] ?: ""
+                                                val setValue: (String) -> Unit = { newValue ->
+                                                    if (newValue.trim().isEmpty()) {
+                                                        selectedDisplayable.properties.remove(entry.key)
+                                                    }
+                                                    else {
+                                                        selectedDisplayable.properties[entry.key] = newValue
+                                                    }
+                                                }
+                                                if (writableProperties.contains(entry.key)) {
+                                                    TextField(value, setValue, singleLine=true)
+                                                }
+                                                else {
+                                                    Text(value)
+                                                }
+                                            }
+                                        }
+                                    }
+                                )
+                            } else {
+                                Box(Modifier.background(Color.White).fillMaxSize())
+                            }
+                        }
                     }
 
-                    Box(modifier = Modifier.fillMaxSize().clipToBounds()) {
+                    Box(modifier = Modifier.fillMaxSize().clipToBounds().let {
+                        if (appState.mouseMode == MouseMode.Interact) {
+                            it.pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR)))
+                        } else {
+                            it
+                        }
+                    }) {
                         val simulation = manager.simulators[manager.openedCircuits.indexOf(manager.selectedCircuit!!)]
 
-                        LaunchedEffect(simulation.second) {
-                            simulation.first.simulationStep()
-                            manager.simulators[manager.openedCircuits.indexOf(manager.selectedCircuit!!)] = simulation.first to simulation.second + 1
+                        if (appState.continuousSimulation) {
+                            LaunchedEffect(simulation.second) {
+                                try {
+                                    simulation.first.simulationStep(restart = !appState.stopSimulationOnRestart)
+                                    manager.simulators[manager.openedCircuits.indexOf(manager.selectedCircuit!!)] =
+                                        simulation.first to simulation.second + 1
+                                } catch (_: Exception) {
+                                    appState.stopSimulationOnRestart = false
+                                    appState.continuousSimulation = false
+                                }
+                            }
                         }
 
                         if (pressed is HoveredNewDisplayable && cursorPosition != null) {
                             // Draw component that is being added, but not yet part of the canvas
 //                            val offsettedPosition = (cursorPosition ?: Offset(0.0f, 0.0f)) + panningOffset
                             val offsettedPosition = (cursorPosition ?: Offset(0.0f, 0.0f))
-                            Text(
-                                (pressed as HoveredNewDisplayable).displayable.name,
-                                modifier = Modifier.offset {
-                                    IntOffset(offsettedPosition.x.toInt(), offsettedPosition.y.toInt())
-                                }
-                            )
+
+                            val displayable = (pressed as HoveredNewDisplayable).displayable
+
+                            if (displayable is Label) {
+                                Text(
+                                    (pressed as HoveredNewDisplayable).displayable.name,
+                                    modifier = Modifier.offset {
+                                        IntOffset(offsettedPosition.x.toInt(), offsettedPosition.y.toInt())
+                                    }
+                                )
+                            } else {
+                                Image(
+                                    painterResource("/${displayable.name}.svg"),
+                                    displayable.name,
+                                    modifier = Modifier.offset {
+                                        IntOffset(offsettedPosition.x.toInt(), offsettedPosition.y.toInt())
+                                    }
+                                )
+                            }
                         }
 
                         if (pressed is HoveredSource && (pressed as HoveredSource).pressOffset != null && cursorPosition != null) {
@@ -317,26 +421,87 @@ fun App(manager: OpenedCircuitsManager) {
                                             Image(
                                                 painterResource("/${displayable.name}.svg"),
                                                 displayable.name,
-                                                modifier = Modifier.offset {
-                                                    IntOffset(x.toInt(), y.toInt())
-                                                }.let {
-                                                    if (displayable.isClickable) {
-                                                        it.onClick {
-                                                            displayable.onClick()
-                                                            val simulation = manager.selectedSimulation?.first
-                                                            if (simulation != null && displayable is Component) {
-                                                                simulation.simulateComponent(displayable)
+                                                colorFilter = if (displayable is OutputPin || displayable is InputPin || displayable is Node) {
+                                                    when (displayable.properties["value"]?.toIntOrNull()) {
+                                                        0 -> ColorFilter.tint(Color.Red)
+                                                        1 -> ColorFilter.tint(Color.Green)
+                                                        null -> null
+                                                        else -> ColorFilter.tint(Color.Blue)
+                                                    }
+                                                } else null,
+                                                modifier = Modifier
+                                                    .offset {
+                                                        IntOffset(x.toInt(), y.toInt())
+                                                    }
+                                                    .let {
+                                                        if (appState.selectedDisplayable == displayable) {
+                                                            it.drawBehind {
+                                                                val stroke = Stroke(width = 2f,
+                                                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                                                )
+                                                                drawRoundRect(color = Color.Black, style = stroke)
                                                             }
                                                         }
+                                                        else {
+                                                            it
+                                                        }
                                                     }
-                                                    else {
-                                                        it
+                                                    .let {
+                                                        if (appState.mouseMode == MouseMode.Interact && displayable.isClickable) {
+                                                            it.onClick {
+                                                                displayable.onClick()
+                                                                manager.simulators[manager.openedCircuits.indexOf(manager.selectedCircuit!!)] =
+                                                                    simulation.first to simulation.second + 1
+                                                                val simulation = manager.selectedSimulation?.first
+                                                                if (simulation != null && displayable is Component) {
+                                                                    simulation.simulateComponent(displayable)
+                                                                }
+                                                            }.pointerHoverIcon(
+                                                                PointerIcon(
+                                                                    Cursor.getPredefinedCursor(
+                                                                        Cursor.HAND_CURSOR
+                                                                    )
+                                                                )
+                                                            )
+                                                        } else if (appState.mouseMode == MouseMode.Select) {
+                                                            if (appState.selectedDisplayable != displayable) {
+                                                                it
+                                                                    .onClick {
+                                                                        appState.selectedDisplayable = displayable
+                                                                        if (appState.hovered == null) {
+                                                                            appState.hovered = HoveredDisplayable(displayable)
+                                                                        }
+                                                                    }
+                                                            } else {
+                                                                it
+                                                                    .pointerHoverIcon(
+                                                                        PointerIcon(
+                                                                            Cursor.getPredefinedCursor(
+                                                                                Cursor.MOVE_CURSOR
+                                                                            )
+                                                                        )
+                                                                    )
+                                                                    .onPointerEvent(PointerEventType.Enter) {
+                                                                        if (appState.hovered == null) {
+                                                                            appState.hovered = HoveredDisplayable(displayable)
+                                                                        }
+                                                                    }
+                                                                    .onPointerEvent(PointerEventType.Exit) {
+                                                                        if (appState.hovered == HoveredDisplayable(displayable)) {
+                                                                            appState.hovered = null
+                                                                        }
+                                                                    }
+                                                            }
+                                                        } else {
+                                                            it
+                                                        }
                                                     }
-                                                }.onGloballyPositioned {
-                                                    displayablePositions[displayable] = it
-                                                }
+                                                    .onGloballyPositioned {
+                                                        displayablePositions[displayable] = it
+                                                    }
                                             )
-                                            for ((index, i) in (displayable as Component).inputNames.zip((displayable as Component).inputPositions).withIndex()) {
+                                            for ((index, i) in (displayable as Component).inputNames.zip((displayable as Component).inputPositions)
+                                                .withIndex()) {
                                                 val (inputName, inputPosition) = i
                                                 Box(
                                                     modifier = Modifier
@@ -351,25 +516,25 @@ fun App(manager: OpenedCircuitsManager) {
                                                         .let {
                                                             if (pressed is HoveredSource) {
                                                                 it.background(Color.Cyan)
-                                                            }
-                                                            else {
+                                                            } else {
                                                                 it
                                                             }
                                                         }
                                                         .onPointerEvent(PointerEventType.Enter) {
                                                             if (pressed is HoveredSource) {
-                                                                hovered = HoveredSink(displayable, index)
+                                                                appState.hovered = HoveredSink(displayable, index)
                                                             }
                                                         }
                                                         .onPointerEvent(PointerEventType.Exit) {
-                                                            if (hovered is HoveredSink) {
-                                                                hovered = null
+                                                            if (appState.hovered is HoveredSink) {
+                                                                appState.hovered = null
                                                             }
                                                         }
 
                                                 )
                                             }
-                                            for ((index, o) in displayable.outputNames.zip(displayable.outputPositions).withIndex()) {
+                                            for ((index, o) in displayable.outputNames.zip(displayable.outputPositions)
+                                                .withIndex()) {
                                                 val (outputName, outputPosition) = o
                                                 var isHovered by remember { mutableStateOf(false) }
                                                 Box(
@@ -385,21 +550,20 @@ fun App(manager: OpenedCircuitsManager) {
                                                         .let {
                                                             if (isHovered) {
                                                                 it.background(Color.Magenta)
-                                                            }
-                                                            else {
+                                                            } else {
                                                                 it
                                                             }
                                                         }
                                                         .onPointerEvent(PointerEventType.Enter) {
                                                             if (pressed == null) {
                                                                 isHovered = true
-                                                                hovered = HoveredSource(displayable, index)
+                                                                appState.hovered = HoveredSource(displayable, index)
                                                             }
                                                         }
                                                         .onPointerEvent(PointerEventType.Exit) {
                                                             isHovered = false
-                                                            if (hovered is HoveredSource) {
-                                                                hovered = null
+                                                            if (appState.hovered is HoveredSource) {
+                                                                appState.hovered = null
                                                             }
                                                         }
                                                 )
@@ -411,9 +575,52 @@ fun App(manager: OpenedCircuitsManager) {
                                 is Label -> {
                                     Text(
                                         displayable.properties["text"] ?: "Label",
-                                        modifier = Modifier.offset {
-                                            IntOffset(x.toInt(), y.toInt())
-                                        }
+                                        color = displayable.color,
+                                        modifier = Modifier
+                                            .offset {
+                                                IntOffset(x.toInt(), y.toInt())
+                                            }
+                                            .let {
+                                                if (appState.selectedDisplayable == displayable) {
+                                                    it.drawBehind {
+                                                        val stroke = Stroke(width = 2f,
+                                                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                                        )
+                                                        drawRoundRect(color = Color.Black, style = stroke)
+                                                    }
+                                                }
+                                                else {
+                                                    it
+                                                }
+                                            }
+                                            .let {
+                                                if (appState.mouseMode == MouseMode.Select) {
+                                                    if (appState.selectedDisplayable != displayable) {
+                                                        it
+                                                            .onClick {
+                                                                appState.selectedDisplayable = displayable
+                                                                if (appState.hovered == null) {
+                                                                    appState.hovered = HoveredDisplayable(displayable)
+                                                                }
+                                                            }
+                                                    } else {
+                                                        it
+                                                            .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR)))
+                                                            .onPointerEvent(PointerEventType.Enter) {
+                                                                if (appState.hovered == null) {
+                                                                    appState.hovered = HoveredDisplayable(displayable)
+                                                                }
+                                                            }
+                                                            .onPointerEvent(PointerEventType.Exit) {
+                                                                if (appState.hovered == HoveredDisplayable(displayable)) {
+                                                                    appState.hovered = null
+                                                                }
+                                                            }
+                                                    }
+                                                } else {
+                                                    it
+                                                }
+                                            }
                                     )
                                 }
 
@@ -422,11 +629,22 @@ fun App(manager: OpenedCircuitsManager) {
                                         displayable.name,
                                         modifier = Modifier.offset {
                                             IntOffset(x.toInt(), y.toInt())
-                                        }.also {
-                                            if (displayable.isClickable) {
+                                        }.let {
+                                            if (appState.mouseMode == MouseMode.Interact && displayable.isClickable) {
                                                 it.onClick {
                                                     displayable.onClick()
+                                                    val simulation = manager.selectedSimulation?.first
+                                                    if (simulation != null && displayable is Component) {
+                                                        simulation.simulateComponent(displayable)
+                                                    }
                                                 }
+                                                    .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)))
+                                            } else if (appState.mouseMode == MouseMode.Select) {
+                                                it.onClick {
+                                                    appState.selectedDisplayable = displayable
+                                                }
+                                            } else {
+                                                it
                                             }
                                         }
                                     )
@@ -458,11 +676,9 @@ fun App(manager: OpenedCircuitsManager) {
                                         val value = simulation.knownValues[sourceComp]!![sourceIdx]
                                         if (value == 0) {
                                             color = Color.Red
-                                        }
-                                        else if (value == 1) {
+                                        } else if (value == 1) {
                                             color = Color.Green
-                                        }
-                                        else if (value != null && value > 1) {
+                                        } else if (value != null && value > 1) {
                                             color = Color.Blue
                                         }
                                     }
@@ -491,22 +707,32 @@ fun App(manager: OpenedCircuitsManager) {
 abstract sealed class Hoverable {
     abstract fun withPressOffset(offset: Offset): Hoverable
 }
-data class HoveredNewDisplayable(val displayable: Displayable): Hoverable() {
+
+data class HoveredNewDisplayable(val displayable: Displayable) : Hoverable() {
     override fun withPressOffset(offset: Offset): Hoverable = this
 }
-data class HoveredDisplayable(val displayable: Displayable): Hoverable() {
+
+data class HoveredDisplayable(val displayable: Displayable) : Hoverable() {
     override fun withPressOffset(offset: Offset): Hoverable = this
 }
-data class HoveredSource(val displayable: Displayable, val sourceIndex: Int, val pressOffset: Offset? = null): Hoverable() {
+
+data class HoveredSource(val displayable: Displayable, val sourceIndex: Int, val pressOffset: Offset? = null) :
+    Hoverable() {
     override fun withPressOffset(offset: Offset): Hoverable = copy(pressOffset = offset)
 }
-data class HoveredSink(val displayable: Displayable, val sinkIndex: Int): Hoverable() {
+
+data class HoveredSink(val displayable: Displayable, val sinkIndex: Int) : Hoverable() {
     override fun withPressOffset(offset: Offset): Hoverable = this
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun ToolboxComponent(name: String, creator: () -> Displayable, onHoverStart: (() -> Unit)? = null, onHoverEnd: (() -> Unit)? = null) {
+fun ToolboxComponent(
+    name: String,
+    creator: () -> Displayable,
+    onHoverStart: (() -> Unit)? = null,
+    onHoverEnd: (() -> Unit)? = null
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     Row(
@@ -521,8 +747,7 @@ fun ToolboxComponent(name: String, creator: () -> Displayable, onHoverStart: (()
             .let {
                 if (isHovered) {
                     it.background(Color.Black.copy(alpha = 0.05F))
-                }
-                else {
+                } else {
                     it
                 }
             }
@@ -580,6 +805,7 @@ fun main() {
     }
     application {
         val manager = remember { OpenedCircuitsManager() }
+        val appState = remember { AppState() }
         val openedCircuits = manager.openedCircuits
         val selectedCircuit = manager.selectedCircuit
 
@@ -706,7 +932,7 @@ fun main() {
                             filesToSaveAs.add(oldCircuit)
                             fileBeingSaved = 0
                         } else {
-                            manager.modifyCircuit(selectedCircuit!!) { circuit ->
+                            manager.modifyCircuit(selectedCircuit) { circuit ->
                                 circuit.save()
                             }
                         }
@@ -754,15 +980,87 @@ fun main() {
                         }
                     }
                 }
+                Menu("Edit", 'E') {
+                    Item(
+                        "Delete",
+                        mnemonic = 'D',
+                        enabled = appState.selectedDisplayable != null && manager.selectedCircuit != null,
+                        shortcut = KeyShortcut(if (isMacOs) Key.Backspace else Key.Delete)
+                    ) {
+                        // Component delete
+                        manager.modifyCircuit(manager.selectedCircuit!!) { circuit ->
+                            circuit.editCircuit { cfc ->
+                                cfc.editCanvas {
+                                    it - appState.selectedDisplayable!!
+                                }.editDisplayables {
+                                    it - appState.selectedDisplayable!!
+                                }.editGraph { graph ->
+                                    val toRemove =
+                                        graph.vertices.filter { it.data.component == appState.selectedDisplayable }
+                                    for (elem in toRemove) {
+                                        graph.removeVertex(elem)
+                                    }
+                                    graph
+                                }
+                            }
+                        }
+                        appState.selectedDisplayable = null
+                    }
+                }
+                Menu("Mouse", 'M') {
+                    RadioButtonItem("Select", mnemonic = 'S', selected = appState.mouseMode == MouseMode.Select) {
+                        appState.mouseMode = MouseMode.Select
+                    }
+                    RadioButtonItem("Interact", mnemonic = 'I', selected = appState.mouseMode == MouseMode.Interact) {
+                        appState.mouseMode = MouseMode.Interact
+                    }
+                }
                 Menu("Simulator", 'S') {
-                    Item("Next Step", enabled = manager.selectedCircuit != null) {
+                    Item("Next Step", mnemonic = 'N', enabled = manager.selectedCircuit != null) {
                         val simulation = manager.selectedSimulation!!
                         simulation.first.simulationStep()
-                        manager.simulators[manager.openedCircuits.indexOf(manager.selectedCircuit!!)] = simulation.first to simulation.second + 1
+                        manager.simulators[manager.openedCircuits.indexOf(manager.selectedCircuit!!)] =
+                            simulation.first to simulation.second + 1
+                    }
+                    Item("Simulate One Cycle", mnemonic = 'O', enabled = manager.selectedCircuit != null) {
+                        val simulation = manager.selectedSimulation!!
+                        simulation.first.simulationStep()
+                        manager.simulators[manager.openedCircuits.indexOf(manager.selectedCircuit!!)] =
+                            simulation.first to simulation.second + 1
+                        appState.stopSimulationOnRestart = true
+                        appState.continuousSimulation = true
+                    }
+                    CheckboxItem("Continuous Simulation", appState.continuousSimulation, mnemonic = 'C') {
+                        appState.continuousSimulation = it
+                    }
+                }
+                Menu("Circuits", 'i') {
+                    for (circuit in manager.openedCircuits) {
+                        RadioButtonItem(circuit.filename ?: "New Circuit", selected = manager.selectedCircuit == circuit) {
+                            manager.selectCircuit(circuit)
+                        }
+                    }
+                }
+                Menu("Components", 'C', enabled = manager.selectedCircuit != null) {
+                    for (displayable in manager.selectedCircuit?.circuit?.canvas?.keys ?: setOf()) {
+                        val displayName = if (displayable.properties["name"] != null) {
+                            "${displayable.properties["name"]} (${displayable.name})"
+                        }
+                        else {
+                            "${displayable.name}@${displayable.hashCode().toString(16)}"
+                        }
+                        RadioButtonItem(displayName, selected = appState.selectedDisplayable == displayable) {
+                            appState.selectedDisplayable = displayable
+                        }
+                    }
+                    Separator()
+                    Item("Deselect", mnemonic = 'D', enabled = appState.selectedDisplayable != null) {
+                        appState.selectedDisplayable = null
+                        appState.hovered = null
                     }
                 }
             }
-            App(manager)
+            App(appState, manager)
         }
     }
 }

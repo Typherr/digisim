@@ -11,6 +11,7 @@ class InputPin : Component {
 
     override val properties: MutableMap<String, String> = mutableMapOf("value" to "0")
     override val exposedProperties: MutableMap<String, String> = mutableMapOf("value" to "Value")
+    override val writableProperties: MutableList<String> = mutableListOf("value")
 
     override fun compute(inputs: List<Int?>): List<Int?> {
         return listOf(properties["value"]?.toIntOrNull())

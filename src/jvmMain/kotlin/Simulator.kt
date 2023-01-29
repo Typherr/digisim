@@ -69,12 +69,14 @@ class Simulator(private val circuit: Graph<CircuitPair>) {
             val result = simulatedComponent.compute(inputs)
 
             // Add the result to known values
-            _knownValues[simulatedComponent] = result
+            if (_knownValues[simulatedComponent] != result) {
+                _knownValues[simulatedComponent] = result
 
-            // Notify all components that are using outputs of this component that they need to simulate
-            for (resultIndex in result.indices) {
-                val destinations = circuit[simulatedComponent index resultIndex]
-                toSimulate.addAll(destinations.map { it.data.component }.distinct())
+                // Notify all components that are using outputs of this component that they need to simulate
+                for (resultIndex in result.indices) {
+                    val destinations = circuit[simulatedComponent index resultIndex]
+                    toSimulate.addAll(destinations.map { it.data.component }.distinct())
+                }
             }
         }
     }
