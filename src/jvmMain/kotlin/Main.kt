@@ -409,7 +409,7 @@ fun App(appState: AppState, manager: OpenedCircuitsManager) {
                         for ((displayable, xy) in manager.selectedCircuit!!.circuit.canvas) {
                             val (x, y) = Offset(xy.first, xy.second) + panningOffset
                             when (displayable) {
-                                is Gate, is InputPin, is OutputPin -> {
+                                !is Label -> {
                                     // HERE
                                     MeasureUnconstrainedViewSize(
                                         viewToMeasure = {
@@ -423,14 +423,17 @@ fun App(appState: AppState, manager: OpenedCircuitsManager) {
                                             Image(
                                                 painterResource("/${displayable.name}.svg"),
                                                 displayable.name,
-                                                colorFilter = if (displayable is OutputPin || displayable is InputPin || displayable is Node) {
-                                                    when (displayable.properties["value"]?.toIntOrNull()) {
-                                                        0 -> ColorFilter.tint(Color.Red)
-                                                        1 -> ColorFilter.tint(Color.Green)
-                                                        null -> null
-                                                        else -> ColorFilter.tint(Color.Blue)
+                                                colorFilter = when (displayable) {
+                                                    is OutputPin, is InputPin, is Node, is Clock -> {
+                                                        when (displayable.properties["value"]?.toIntOrNull()) {
+                                                            0 -> ColorFilter.tint(Color.Red)
+                                                            1 -> ColorFilter.tint(Color.Green)
+                                                            null -> null
+                                                            else -> ColorFilter.tint(Color.Blue)
+                                                        }
                                                     }
-                                                } else null,
+                                                    else -> null
+                                                },
                                                 modifier = Modifier
                                                     .offset {
                                                         IntOffset(x.toInt(), y.toInt())

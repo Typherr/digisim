@@ -90,5 +90,10 @@ object DisplayableSerializer : KSerializer<Displayable> {
                 comp.properties[k] = v
             }
         } },
+        "Clock" to { Clock().also { comp ->
+            for ((k, v) in it) {
+                comp.properties[k] = v
+            }
+        } },
     )
 }
