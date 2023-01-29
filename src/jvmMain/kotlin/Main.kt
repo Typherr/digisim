@@ -97,6 +97,8 @@ fun App(appState: AppState, manager: OpenedCircuitsManager) {
                     }
                 }
             }
+            manager.selectedSimulation!!.first.simulateComponent(from.component)
+            manager.selectedSimulation!!.first.simulateComponent(to.component)
         }
 
         // Tabs
