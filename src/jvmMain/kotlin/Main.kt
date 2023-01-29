@@ -520,7 +520,7 @@ fun App(appState: AppState, manager: OpenedCircuitsManager) {
                                                         .height(10.dp)
                                                         .let {
                                                             if (pressed is HoveredSource) {
-                                                                it.background(Color.Cyan)
+                                                                it.background(Color.Blue, shape = CircleShape)
                                                             } else {
                                                                 it
                                                             }
@@ -554,7 +554,7 @@ fun App(appState: AppState, manager: OpenedCircuitsManager) {
                                                         .height(10.dp)
                                                         .let {
                                                             if (isHovered) {
-                                                                it.background(Color.Magenta)
+                                                                it.background(Color(0xffffaa00), shape = CircleShape)
                                                             } else {
                                                                 it
                                                             }
